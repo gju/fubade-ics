@@ -24,18 +24,27 @@ def parse_games(content: str) -> list[dict]:
 
     games = []
     current_game = {}
+    skip_game = False
 
     for row in rows:
         classes = row.get("class", [])
         assert isinstance(classes, list)
 
+        if not "row-headline" in classes and skip_game:
+            continue
+
         if "row-headline" in classes:
             if current_game:
-                games.append(current_game)
+                if not skip_game:
+                    games.append(current_game)
                 current_game = {}
+                skip_game = False
             headline = row.text.strip()
-            m = re.search(r", (.+) \| (.+)", headline)
-            assert m is not None, f"headline {headline} doesn't match pattern"
+            m = re.search(r", (\d{2}.\d{2}.\d{4} - \d{2}:\d{2} Uhr) \| (.+)", headline)
+            if not m:
+                logging.debug("headline does not match pattern: %s", headline)
+                skip_game = True
+                continue
             current_game["datetime"] = datetime.strptime(
                 m.group(1), "%d.%m.%Y - %H:%M Uhr"
             )
