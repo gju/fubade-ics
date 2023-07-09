@@ -8,7 +8,7 @@ from typing import IO
 import bs4
 import requests
 
-DATA_URL = "https://www.fussball.de/ajax.team.matchplan.loadmore/-/datum-bis/{date_to}/datum-von/{date_from}/match-type/-1/mime-type/JSON/mode/PAGE/show-venues/true/team-id/{team_id}/max/{per_page}/offset/{offset}"
+DATA_URL = "https://www.fussball.de/ajax.team.matchplan.loadmore/-/datum-von/{date_from}/match-type/-1/mime-type/JSON/mode/PAGE/show-venues/true/team-id/{team_id}/max/{per_page}/offset/{offset}"
 GAMES_PER_PAGE = 200
 
 logging.basicConfig(
@@ -57,21 +57,26 @@ def parse_games(content: str) -> list[dict]:
     return games
 
 
-def fetch_games(team_id: str, date_from: date, date_to: date) -> list[dict]:
+def fetch_games(
+    team_id: str, date_from: date, date_to: date | None = None
+) -> list[dict]:
     """Fetches game data of a given team in the timespan between date_from and date_to"""
     params = {
         "team_id": team_id,
         "per_page": GAMES_PER_PAGE,
         "offset": 0,
         "date_from": date.strftime(date_from, "%Y-%m-%d"),
-        "date_to": date.strftime(date_to, "%Y-%m-%d"),
     }
+
+    date_to_param = ""
+    if date_to:
+        date_to_param = f"/datum-bis/{date.strftime(date_to, '%Y-%m-%d')}"
 
     done = False
     games = []
 
     while not done:
-        page_url = DATA_URL.format(**params)
+        page_url = DATA_URL.format(**params) + date_to_param
         logging.debug("fetchting %s", page_url)
         resp = requests.get(page_url)
         assert (
@@ -132,7 +137,7 @@ def main():
     arg_parser.add_argument(
         "--to",
         dest="date_to",
-        required=True,
+        required=False,
         help="yyyy-mm-dd",
     )
     arg_parser.add_argument(
@@ -149,7 +154,9 @@ def main():
 
     args = arg_parser.parse_args()
     date_from = datetime.strptime(args.date_from, "%Y-%m-%d").date()
-    date_to = datetime.strptime(args.date_to, "%Y-%m-%d").date()
+    date_to = (
+        datetime.strptime(args.date_to, "%Y-%m-%d").date() if args.date_to else None
+    )
 
     if args.debug:
         logging.root.setLevel(logging.DEBUG)
