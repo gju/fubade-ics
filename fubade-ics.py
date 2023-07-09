@@ -118,7 +118,9 @@ def main():
         description="A script for creating iCal calendars from fussball.de team game plans"
     )
     arg_parser.add_argument(
-        "team_id",
+        "--teamid",
+        dest="team_id",
+        required=True,
         help="the team's fussball.de id",
     )
     arg_parser.add_argument(
