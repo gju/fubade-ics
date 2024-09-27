@@ -66,6 +66,19 @@ def parse_games(content: str) -> list[dict]:
     return games
 
 
+def fetch_teamname(team_id: str) -> str:
+    """Fetches the team name by its team id"""
+    resp = requests.get(
+        f"https://www.fussball.de/mannschaft/-/saison/2425/team-id/{team_id}/",
+        allow_redirects=True,
+    )
+    assert resp.status_code == 200
+    soup = bs4.BeautifulSoup(resp.text, features="html.parser")
+    title = soup.find("title")
+    assert title is not None
+    return title.text
+
+
 def fetch_games(
     team_id: str, date_from: date, date_to: date | None = None
 ) -> list[dict]:
@@ -101,9 +114,10 @@ def fetch_games(
     return games
 
 
-def write_ical(games: list[dict], fp: IO[str]) -> None:
+def write_ical(team_name: str, games: list[dict], fp: IO[str]) -> None:
     """Writes a list of games to fp"""
     calendar = "BEGIN:VCALENDAR\n"
+    calendar += f"X-WR-CALNAME:{team_name} Spielplan\n"
 
     for game in games:
         summary = f"{game['team1']} - {game['team2']}"
@@ -170,15 +184,17 @@ def main():
     if args.debug:
         logging.root.setLevel(logging.DEBUG)
 
+    logging.debug("fetching team name")
+    team_name = fetch_teamname(args.team_id)
     logging.debug("fetching games")
-    games = fetch_games(team_id=args.team_id, date_from=date_from, date_to=date_to)
+    games = fetch_games(args.team_id, date_from, date_to)
 
     if args.output_file:
         logging.debug("writing calendar to %s", args.output_file)
         with open(args.output_file, "w") as f:
-            write_ical(games, f)
+            write_ical(team_name, games, f)
     else:
-        write_ical(games, sys.stdout)
+        write_ical(team_name, games, sys.stdout)
 
     logging.debug("done")
 
